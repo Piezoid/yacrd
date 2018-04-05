@@ -24,9 +24,10 @@ SOFTWARE.
 #define UTILS_HPP
 
 /* standard include */
-#include <vector>
+#include <sstream>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 namespace yacrd {
 namespace utils {
@@ -34,6 +35,7 @@ namespace utils {
 // type definition
 using name_len = std::pair<std::string, std::uint64_t>;
 using interval = std::pair<std::uint64_t, std::uint64_t>;
+using interval_vector = std::vector<interval>;
 
 struct Read2MappingHash
 {
@@ -45,11 +47,47 @@ struct Read2MappingHash
 
 using read2mapping_type = std::unordered_map<name_len, std::vector<interval>, Read2MappingHash>;
 
-// utils function
-void split(const std::string& s, char delimiter, std::vector<std::string>& tokens);
+struct tokens_iterator {
+    using value_type = std::string;
+    using reference = const value_type&;
+    using pointer = value_type*;
+
+    tokens_iterator() = default;
+    tokens_iterator(const std::string& str, char delimiter)
+        : _stream(str), _delimiter(delimiter)
+    { ++(*this); }
+
+    //FIXME: istringstreams are not copyable. Either use a proxy or a saner tokenize algorithm.
+//    tokens_iterator(const tokens_iterator&) = default;
+//    tokens_iterator& operator=(const tokens_iterator&) = default;
+    tokens_iterator(tokens_iterator&&) = default;
+    tokens_iterator& operator=(tokens_iterator&&) = default;
+    ~tokens_iterator() = default;
+
+    tokens_iterator& operator++() {
+        std::getline(_stream, _token, _delimiter);
+        return *this;
+    }
+
+    reference operator*() const { return _token; }
+    pointer operator->() { return &_token; }
+
+    friend inline
+    bool operator==(const tokens_iterator& x, const tokens_iterator& y)
+    { return x._stream.rdstate() == y._stream.rdstate(); }
+
+    friend inline
+    bool operator!=(const tokens_iterator& x, const tokens_iterator& y)
+    { return !(x == y); }
+
+public:
+    std::istringstream _stream;
+    std::string _token;
+    char _delimiter{};
+};
 
 template< typename T >
-T absdiff( const T& lhs, const T& rhs ) {
+inline T absdiff( const T& lhs, const T& rhs ) {
   return lhs>rhs ? lhs-rhs : rhs-lhs;
 }
 

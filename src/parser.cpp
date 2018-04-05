@@ -20,89 +20,119 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#include <iostream>
 /* standard include */
 #include <fstream>
 
 /* project include */
 #include "parser.hpp"
 
-void yacrd::parser::file(const std::string& filename, yacrd::utils::read2mapping_type* read2mapping)
+namespace  {
+
+inline bool insert(yacrd::parser::alignment_span& span, yacrd::utils::read2mapping_type& read2mapping) {
+    if(span.beg > span.end) {
+        std::swap(span.beg, span.end);
+    }
+
+    // Inserts a new vector in the map, if the read wasn't already indexed
+    auto res = read2mapping.emplace(std::make_pair(span.name, span.len), yacrd::utils::interval_vector());
+    auto it = res.first; // Map iterator at the preexistent or inserted entry
+    it->second.push_back(std::make_pair(span.beg, span.end));
+
+    return res.second;
+}
+
+inline bool insert(yacrd::parser::alignment& alignment, yacrd::utils::read2mapping_type& read2mapping) {
+    bool ins_first = insert(alignment.first, read2mapping);
+    bool ins_second = insert(alignment.second, read2mapping);
+    return ins_first || ins_second;
+}
+
+} // namespace
+
+void yacrd::parser::file(const std::string& filename, yacrd::utils::read2mapping_type& read2mapping)
 {
     auto parse_line = yacrd::parser::paf_line;
-    if(filename.substr(filename.find_last_of(".") + 1) == "mhap")
+    if(filename.substr(filename.find_last_of('.') + 1) == "mhap")
     {
         parse_line = yacrd::parser::mhap_line;
     }
 
-    std::uint64_t switch_val;
-
     std::string line;
     std::ifstream infile(filename);
-    std::vector<std::string> tokens;
+    yacrd::parser::alignment alignment;
     while(std::getline(infile, line))
     {
-        std::string name_a, name_b;
-        std::uint64_t len_a, beg_a, end_a, len_b, beg_b, end_b;
-
-        (*parse_line)(line, &name_a, &len_a, &beg_a, &end_a, &name_b, &len_b, &beg_b, &end_b, tokens);
-
-        if(beg_a > end_a)
-        {
-            switch_val = beg_a;
-            beg_a = end_a;
-            end_a = switch_val;
+        if(!line.empty()) {
+            (*parse_line)(line, alignment, false);
+            insert(alignment, read2mapping);
         }
-
-        if(beg_b > end_b)
-        {
-            switch_val = beg_b;
-            beg_b = end_b;
-            end_b = switch_val;
-        }
-
-        if(read2mapping->count(std::make_pair(name_a, len_a)) == 0)
-        {
-            read2mapping->emplace(std::make_pair(name_a, len_a), std::vector<yacrd::utils::interval>());
-        }
-        read2mapping->at(std::make_pair(name_a, len_a)).push_back(std::make_pair(beg_a, end_a));
-
-        if(read2mapping->count(std::make_pair(name_b, len_b)) == 0)
-        {
-            read2mapping->emplace(std::make_pair(name_b, len_b), std::vector<yacrd::utils::interval>());
-        }
-        read2mapping->at(std::make_pair(name_b, len_b)).push_back(std::make_pair(beg_b, end_b));
     }
 
 }
 
-void yacrd::parser::paf_line(const std::string& line, std::string* name_a, std::uint64_t* len_a, std::uint64_t* beg_a, std::uint64_t* end_a, std::string* name_b, std::uint64_t* len_b, std::uint64_t* beg_b, std::uint64_t* end_b, std::vector<std::string>& tokens)
+void yacrd::parser::paf_line(const std::string& line, yacrd::parser::alignment& out, bool only_names)
 {
-    yacrd::utils::split(line, '\t', tokens);
+    yacrd::utils::tokens_iterator it(line, '\t');
 
-    *name_a = tokens[0];
-    *len_a = std::stoi(tokens[1]);
-    *beg_a = std::stoi(tokens[2]);
-    *end_a = std::stoi(tokens[3]);
+    out.first.name = *it; // Token 0
 
-    *name_b = tokens[5];
-    *len_b = std::stoi(tokens[6]);
-    *beg_b = std::stoi(tokens[7]);
-    *end_b = std::stoi(tokens[8]);
+    if(!only_names) {
+        ++it;
+        out.first.len = std::stoul(*it);
+
+        ++it;
+        out.first.beg = std::stoul(*it);
+
+        ++it;
+        out.first.end = std::stoul(*it);
+
+        ++it; // Token 4: skip
+        ++it; // Token 5: second name
+    } else {
+        for(unsigned i=0 ; i < 5 ; i++) { ++it; }
+    }
+
+    out.second.name = *it; // Token 5
+
+    if(!only_names) {
+        ++it;
+        out.second.len = std::stoul(*it);
+
+        ++it;
+        out.second.beg = std::stoul(*it);
+
+        ++it;
+        out.second.end = std::stoul(*it);
+    }
 }
 
-void yacrd::parser::mhap_line(const std::string& line, std::string* name_a, std::uint64_t* len_a, std::uint64_t* beg_a, std::uint64_t* end_a, std::string* name_b, std::uint64_t* len_b, std::uint64_t* beg_b, std::uint64_t* end_b, std::vector<std::string>& tokens)
+void yacrd::parser::mhap_line(const std::string& line, yacrd::parser::alignment& out, bool only_names)
 {
-    yacrd::utils::split(line, ' ', tokens);
+    yacrd::utils::tokens_iterator it(line, ' ');
 
-    *name_a = tokens[0];
-    *len_a = std::stoi(tokens[7]);
-    *beg_a = std::stoi(tokens[5]);
-    *end_a = std::stoi(tokens[6]);
+    out.first.name = *it; // Token 0
 
-    *name_b = tokens[1];
-    *len_b = std::stoi(tokens[11]);
-    *beg_b = std::stoi(tokens[9]);
-    *end_b = std::stoi(tokens[10]);
+    ++it;
+    out.second.name = *it;
+
+    if(!only_names) {
+        for(unsigned i=0 ; i < 4 ; i++) { ++it; }
+        out.first.beg = std::stoul(*it); // Token 5
+
+        ++it;
+        out.first.end = std::stoul(*it);
+
+        ++it;
+        out.first.len = std::stoul(*it);
+
+
+        ++it; ++it;
+        out.second.beg = std::stoul(*it); // Token 9
+
+        ++it;
+        out.second.end = std::stoul(*it);
+
+        ++it;
+        out.second.len = std::stoul(*it);
+    }
 }
-

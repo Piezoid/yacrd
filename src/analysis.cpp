@@ -32,6 +32,8 @@ SOFTWARE.
 #include "parser.hpp"
 #include "analysis.hpp"
 
+using coverage_t = std::uint_fast8_t;
+
 namespace {
 
 void add_gap(yacrd::utils::interval_vector& middle, yacrd::utils::interval_vector& extremity, const yacrd::utils::interval& gap, const std::uint64_t readlen)
@@ -59,7 +61,8 @@ std::unordered_set<std::string> yacrd::analysis::find_chimera(const std::string&
     // parse paf file
     yacrd::parser::file(std::string(paf_filename), read2mapping);
 
-    std::vector<std::uint64_t> coverage;
+    std::vector<coverage_t> coverage;
+    coverage.reserve( 1 << 12 );
     // for each read
     for(auto read_name_len : read2mapping)
     {
@@ -74,7 +77,7 @@ std::unordered_set<std::string> yacrd::analysis::find_chimera(const std::string&
 
             for(auto i = mapping.first; i != mapping.second; i++)
             {
-                coverage[i] += 1;
+                __builtin_add_overflow(coverage[i], 1, &coverage[i]);
             }
         }
 
@@ -117,7 +120,7 @@ std::unordered_set<std::string> yacrd::analysis::find_chimera(const std::string&
             {
                 std::cout<<yacrd::utils::absdiff(gap.first, gap.second)<<","<<gap.first<<","<<gap.second<<";";
             }
-            std::cout<<std::endl;
+            std::cout<<"\n";
             continue;
         }
 
@@ -129,7 +132,7 @@ std::unordered_set<std::string> yacrd::analysis::find_chimera(const std::string&
                 {
                     std::cout<<"Not_covered:"<<read_name_len.first.first<<","<<read_name_len.first.second<<";";
                     std::cout<<yacrd::utils::absdiff(gap.first, gap.second)<<","<<gap.first<<","<<gap.second<<";";
-                    std::cout<<std::endl;
+                    std::cout<<"\n";
                     remove_reads.insert(name);
                     break;
                 }

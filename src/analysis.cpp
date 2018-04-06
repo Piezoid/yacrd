@@ -42,25 +42,26 @@ std::unordered_set<std::string> yacrd::analysis::find_chimera(const std::string&
     // parse paf file
     yacrd::parser::file(std::string(paf_filename), read2mapping);
 
-    yacrd::utils::interval_vector middle_gaps;
+    yacrd::utils::interval_vector middle_gaps; middle_gaps.reserve(64);
     std::priority_queue<size_t, std::vector<size_t>, std::greater<size_t>> stack; // interval ends
 
     // for each read
-    for(auto read_name_len : read2mapping)
+    for(auto read_mapping : read2mapping)
     {
         middle_gaps.clear();
         stack = {};
 
-        auto name_len = read_name_len.first;
-        std::string& name = name_len.first;
-        size_t len = name_len.second;
-        yacrd::utils::interval_vector& intervals = read_name_len.second;
-
-        std::sort(intervals.begin(), intervals.end());
+        const std::string& name = read_mapping.first;
+        yacrd::utils::mapped_read& mapping = read_mapping.second;
 
         size_t first_covered = 0;
         size_t last_covered = 0; // end of the last sufficiently covered interval
-        for(auto interval : intervals) {
+
+        // Iterates intervals by increasing opening position
+        for(; !mapping.empty() ; mapping.pop_interval()) {
+            // Next interval to be pilled up
+            auto& interval = mapping.first_interval();
+
             // Unstack intervals ending before the beginning of this one
             while(!stack.empty() && stack.top() < interval.first) {
                 if(stack.size() > coverage_min) {
@@ -84,7 +85,7 @@ std::unordered_set<std::string> yacrd::analysis::find_chimera(const std::string&
         // Unstack until we reach low coverage region or the end of the read
         while(stack.size() > coverage_min) {
             last_covered = stack.top();
-            if(last_covered >= len) {
+            if(last_covered >= mapping.length()) {
                 break;
             }
             stack.pop();
@@ -95,7 +96,7 @@ std::unordered_set<std::string> yacrd::analysis::find_chimera(const std::string&
         if(!middle_gaps.empty())
         {
             remove_reads.insert(name);
-            std::cout<<"Chimeric:"<<name<<","<<len<<";";
+            std::cout<<"Chimeric:"<<name<<","<<mapping.length()<<";";
             for(auto gap : middle_gaps)
             {
                 std::cout<<yacrd::utils::absdiff(gap.first, gap.second)<<","<<gap.first<<","<<gap.second<<";";
@@ -104,14 +105,14 @@ std::unordered_set<std::string> yacrd::analysis::find_chimera(const std::string&
             continue;
         }
 
-        size_t biggest_extremity_gap = std::max(first_covered, len - last_covered);
-        if(biggest_extremity_gap > 0.8 * len) {
-            std::cout << "Not_covered:" << name << "," << len << ";";
+        size_t biggest_extremity_gap = std::max(first_covered, mapping.length() - last_covered);
+        if(biggest_extremity_gap > 0.8 * mapping.length()) {
+            std::cout << "Not_covered:" << name << "," << mapping.length() << ";";
             std::cout << biggest_extremity_gap << ",";
             if(biggest_extremity_gap == first_covered) {
                 std::cout << "0," << first_covered << ";\n";
             } else {
-                std::cout << last_covered << "," << len << ";\n";
+                std::cout << last_covered << "," << mapping.length() << ";\n";
             }
             remove_reads.insert(name);
             continue;

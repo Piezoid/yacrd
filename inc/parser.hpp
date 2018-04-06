@@ -34,7 +34,7 @@ namespace parser {
 
 struct alignment_span {
   std::string name;
-  size_t beg, end, len;
+  yacrd::utils::pos_t beg, end, len;
 };
 
 using alignment = std::pair<alignment_span, alignment_span>;

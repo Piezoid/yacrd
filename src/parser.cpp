@@ -34,9 +34,9 @@ inline bool insert(yacrd::parser::alignment_span& span, yacrd::utils::read2mappi
     }
 
     // Inserts a new vector in the map, if the read wasn't already indexed
-    auto res = read2mapping.emplace(std::make_pair(span.name, span.len), yacrd::utils::interval_vector());
+    auto res = read2mapping.emplace(span.name, span.len);
     auto it = res.first; // Map iterator at the preexistent or inserted entry
-    it->second.push_back(std::make_pair(span.beg, span.end));
+    it->second.add_interval(span.beg, span.end);
 
     return res.second;
 }

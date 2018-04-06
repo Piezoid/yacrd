@@ -28,24 +28,52 @@ SOFTWARE.
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <algorithm>
 
 namespace yacrd {
 namespace utils {
 
 // type definition
-using name_len = std::pair<std::string, std::uint64_t>;
-using interval = std::pair<std::uint64_t, std::uint64_t>;
+using pos_t = size_t;
+using interval = std::pair<pos_t, pos_t>;
 using interval_vector = std::vector<interval>;
 
-struct Read2MappingHash
-{
-    std::size_t operator()(const name_len& k) const
-    {
-	return std::hash<std::string>()(k.first);
+struct mapped_read {
+    mapped_read(size_t len) : _len(len) {}
+    pos_t length() const { return _len; }
+
+    bool empty() const noexcept { return _intervals.empty(); }
+
+    const interval& first_interval() const { return _intervals.front(); }
+
+    void add_interval(pos_t start, pos_t stop) {
+        if(start > stop) {
+            std::swap(start, stop);
+        }
+        if(start > _len) {
+            return;
+        }
+        if(stop > _len) {
+            stop = _len;
+        }
+
+        _intervals.emplace_back(start, stop);
+        std::push_heap(_intervals.begin(), _intervals.end(), cmp_interval);
     }
+
+    void pop_interval() {
+        std::pop_heap(_intervals.begin(), _intervals.end(), cmp_interval);
+        _intervals.pop_back();
+    }
+
+protected:
+    static bool cmp_interval(const interval& x, const interval& y) { return x.first > y.first; }
+    std::vector<interval> _intervals;
+    pos_t _len;
 };
 
-using read2mapping_type = std::unordered_map<name_len, std::vector<interval>, Read2MappingHash>;
+using read2mapping_type = std::unordered_map<std::string, mapped_read>;
+
 
 struct tokens_iterator {
     using value_type = std::string;

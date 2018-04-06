@@ -66,7 +66,7 @@ std::unordered_set<std::string> yacrd::analysis::find_chimera(const std::string&
 
     yacrd::utils::interval_vector middle_gaps;
     yacrd::utils::interval_vector extremity_gaps;
-    std::priority_queue<size_t> stack; // interval ends
+    std::priority_queue<size_t, std::vector<size_t>, std::greater<size_t>> stack; // interval ends
 
     // for each read
     for(auto read_name_len : read2mapping)

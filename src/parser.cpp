@@ -57,11 +57,12 @@ void yacrd::parser::file(const std::string& filename, yacrd::utils::read2mapping
         parse_line = yacrd::parser::mhap_line;
     }
 
-    std::string line;
-    std::ifstream infile(filename);
+    yacrd::utils::file_buf file(filename);
+    yacrd::utils::file_tokenizer line_tokenizer(file, '\n');
     yacrd::parser::alignment alignment;
-    while(std::getline(infile, line))
+    while(!line_tokenizer.done())
     {
+        auto line = line_tokenizer.next();
         if(!line.empty()) {
             (*parse_line)(line, alignment, false);
             insert(alignment, read2mapping);
@@ -70,69 +71,48 @@ void yacrd::parser::file(const std::string& filename, yacrd::utils::read2mapping
 
 }
 
-void yacrd::parser::paf_line(const std::string& line, yacrd::parser::alignment& out, bool only_names)
+void yacrd::parser::paf_line(yacrd::utils::string_view line, yacrd::parser::alignment& out, bool only_names)
 {
-    yacrd::utils::tokens_iterator it(line, '\t');
-
-    out.first.name = *it; // Token 0
+    yacrd::utils::tokenizer<yacrd::utils::string_view> tok(line, '\t');
+    out.first.name = tok.next(); // Token 0
 
     if(!only_names) {
-        ++it;
-        out.first.len = std::stoul(*it);
+        out.first.len = tok.next().toull();
+        out.first.beg = tok.next().toull();
+        out.first.end = tok.next().toull();
 
-        ++it;
-        out.first.beg = std::stoul(*it);
-
-        ++it;
-        out.first.end = std::stoul(*it);
-
-        ++it; // Token 4: skip
-        ++it; // Token 5: second name
+        tok.next(); // Token 4: skip
     } else {
-        for(unsigned i=0 ; i < 5 ; i++) { ++it; }
+        for(unsigned i=0 ; i < 4 ; i++) { tok.next(); }
     }
 
-    out.second.name = *it; // Token 5
+    out.second.name = tok.next(); // Token 5
 
     if(!only_names) {
-        ++it;
-        out.second.len = std::stoul(*it);
-
-        ++it;
-        out.second.beg = std::stoul(*it);
-
-        ++it;
-        out.second.end = std::stoul(*it);
+        out.second.len = tok.next().toull();
+        out.second.beg = tok.next().toull();
+        out.second.end = tok.next().toull();
     }
 }
 
-void yacrd::parser::mhap_line(const std::string& line, yacrd::parser::alignment& out, bool only_names)
+void yacrd::parser::mhap_line(yacrd::utils::string_view line, yacrd::parser::alignment& out, bool only_names)
 {
-    yacrd::utils::tokens_iterator it(line, ' ');
+    yacrd::utils::tokenizer<yacrd::utils::string_view> tokenizer(line, ' ');
 
-    out.first.name = *it; // Token 0
+    out.first.name = tokenizer.next(); // Token 0
 
-    ++it;
-    out.second.name = *it;
+    out.second.name = tokenizer.next();
 
     if(!only_names) {
-        for(unsigned i=0 ; i < 4 ; i++) { ++it; }
-        out.first.beg = std::stoul(*it); // Token 5
+        for(unsigned i=0 ; i < 3 ; i++) { tokenizer.next(); }
+        out.first.beg = tokenizer.next().toull(); // Token 5
+        out.first.end = tokenizer.next().toull();
+        out.first.len = tokenizer.next().toull();
 
-        ++it;
-        out.first.end = std::stoul(*it);
+        tokenizer.next();
 
-        ++it;
-        out.first.len = std::stoul(*it);
-
-
-        ++it; ++it;
-        out.second.beg = std::stoul(*it); // Token 9
-
-        ++it;
-        out.second.end = std::stoul(*it);
-
-        ++it;
-        out.second.len = std::stoul(*it);
+        out.second.beg = tokenizer.next().toull();
+        out.second.end = tokenizer.next().toull();
+        out.second.len = tokenizer.next().toull();
     }
 }

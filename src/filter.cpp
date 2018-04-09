@@ -34,12 +34,13 @@ namespace { // Local definitions
 
 inline void filter_alignment(yacrd::parser::parser_t parser, const std::string& filter_path, const std::string& output_path, const std::unordered_set<std::string>& remove_reads)
 {
-    std::ifstream in(filter_path);
+    yacrd::utils::file_buf in(filter_path);
+    yacrd::utils::file_tokenizer line_tokenizer(in, '\n');
     std::ofstream out(output_path);
-    std::string line;
     yacrd::parser::alignment align;
-    while(std::getline(in, line))
+    while(line_tokenizer.done())
     {
+        auto line = line_tokenizer.next();
         if(!line.empty()) {
             parser(line, align, true);
             if(remove_reads.count(align.first.name) == 0 && remove_reads.count(align.second.name) == 0)

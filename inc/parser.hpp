@@ -43,11 +43,11 @@ using alignment = std::pair<alignment_span, alignment_span>;
 void file(const std::string& filename, yacrd::utils::read2mapping_type& read2mapping);
 
 
-using parser_t = void (*)(const std::string&, alignment&, bool);
+using parser_t = void (*)(yacrd::utils::string_view, alignment&, bool);
 
-void paf_line(const std::string& line, alignment& out, bool only_names=false);
+void paf_line(yacrd::utils::string_view line, alignment& out, bool only_names=false);
 
-void mhap_line(const std::string& line, alignment& out, bool only_names=false);
+void mhap_line(yacrd::utils::string_view line, alignment& out, bool only_names=false);
 
 } // namespace parser
 } // namespace yacrd
